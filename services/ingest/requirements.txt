@@ -1,0 +1,12 @@
+pdfplumber==0.11.4
+pymupdf==1.24.14
+sentence-transformers==3.3.1
+chromadb==0.5.20
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+structlog==24.4.0
+pydantic==2.10.2
+pydantic-settings==2.7.0
+pytesseract==0.3.13
+rank-bm25==0.2.2
+click==8.1.7

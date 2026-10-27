@@ -1,0 +1,24 @@
+prompts:
+  intake_classify:
+    current_version: "v1"
+    versions:
+      v1:
+        file: "intake/classify.v1.md"
+        description: "Baseline intake and classification prompt"
+
+  researcher_determine:
+    current_version: "v2"
+    versions:
+      v1:
+        file: "researcher/determine.v1.md"
+        description: "Baseline researcher/determiner prompt"
+      v2:
+        file: "researcher/determine.v2.md"
+        description: "Enhanced with explicit modifier-check instructions"
+
+  verifier_verify:
+    current_version: "v1"
+    versions:
+      v1:
+        file: "verifier/verify.v1.md"
+        description: "Verifier agent prompt"
