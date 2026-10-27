@@ -1,6 +1,5 @@
 """Unit tests for Milestone 2 Research Loop, Tools, and Reference Case."""
 
-import pytest
 import asyncio
 from services.worker.tools.registry import (
     tool_get_clause,
@@ -11,21 +10,19 @@ from services.worker.tools.registry import (
 from services.worker.graph_agent import ScreeningAgentGraph
 
 
-@pytest.mark.asyncio
-async def test_tool_get_clause_general_condition():
+def test_tool_get_clause_general_condition():
     """Verify get_clause retrieves exact General Condition text and 5 km threshold."""
-    res = await tool_get_clause("General Condition")
+    res = asyncio.run(tool_get_clause("General Condition"))
     assert res["status"] == "EXACT_MATCH"
     assert res["threshold_primary_km"] == 5.0
     assert "within 5 km" in res["text"]
     assert "1(c)" in res["enhanced_items"]
 
 
-@pytest.mark.asyncio
-async def test_tool_find_modifiers_discovers_gc():
+def test_tool_find_modifiers_discovers_gc():
     """Verify find_modifiers inspects retrieved passage text and returns GC."""
     retrieved_text = "Schedule Item 1(a) Mining of minerals. Category B projects appraised by SEAC."
-    mods = await tool_find_modifiers(passage_text=retrieved_text)
+    mods = asyncio.run(tool_find_modifiers(passage_text=retrieved_text))
     assert len(mods) >= 1
     gc_mod = next((m for m in mods if m["modifier_type"] == "GENERAL_CONDITION"), None)
     assert gc_mod is not None
@@ -49,8 +46,7 @@ def test_tool_compare_threshold_numeric():
     assert res_5km["exact_boundary"] is True
 
 
-@pytest.mark.asyncio
-async def test_reference_case_primary_2km():
+def test_reference_case_primary_2km():
     """Reference Case 4.1: Industrial/mining Category B project, 2 km from national park.
     MUST route to CATEGORY_A_CENTRAL, citing BOTH Schedule Item and General Condition.
     """
@@ -67,7 +63,7 @@ async def test_reference_case_primary_2km():
         ]
     }
 
-    result = await graph.run("run-ref-2km", req, "corr-ref-2km")
+    result = asyncio.run(graph.run("run-ref-2km", req, "corr-ref-2km"))
 
     assert result["route"] == "CATEGORY_A_CENTRAL"
     assert len(result["citations"]) >= 2
@@ -85,8 +81,7 @@ async def test_reference_case_primary_2km():
     assert "5 km" in gc_cite["quote"]
 
 
-@pytest.mark.asyncio
-async def test_reference_case_negative_control_12km():
+def test_reference_case_negative_control_12km():
     """Negative Control: Category B project 12 km from national park stays Category B State."""
     graph = ScreeningAgentGraph()
     req = {
@@ -101,15 +96,14 @@ async def test_reference_case_negative_control_12km():
         ]
     }
 
-    result = await graph.run("run-ref-12km", req, "corr-ref-12km")
+    result = asyncio.run(graph.run("run-ref-12km", req, "corr-ref-12km"))
 
     # Stays Category B State authority
     assert result["route"] == "CATEGORY_B_STATE"
     assert result["verification"]["passed"] is True
 
 
-@pytest.mark.asyncio
-async def test_ambiguous_proximity_escalates():
+def test_ambiguous_proximity_escalates():
     """Ambiguous proximity ('near a forest') MUST escalate with PROXIMITY_UNCERTAIN."""
     graph = ScreeningAgentGraph()
     req = {
@@ -121,14 +115,13 @@ async def test_ambiguous_proximity_escalates():
         "proximity": []
     }
 
-    result = await graph.run("run-ambig", req, "corr-ambig")
+    result = asyncio.run(graph.run("run-ambig", req, "corr-ambig"))
 
     assert result["route"] == "ESCALATED_TO_HUMAN"
     assert result["escalation"]["reason_code"] == "PROXIMITY_UNCERTAIN"
 
 
-@pytest.mark.asyncio
-async def test_out_of_corpus_escalates():
+def test_out_of_corpus_escalates():
     """Out-of-corpus sector MUST escalate with OUT_OF_CORPUS_SECTOR."""
     graph = ScreeningAgentGraph()
     req = {
@@ -140,7 +133,7 @@ async def test_out_of_corpus_escalates():
         "proximity": []
     }
 
-    result = await graph.run("run-ooc", req, "corr-ooc")
+    result = asyncio.run(graph.run("run-ooc", req, "corr-ooc"))
 
     assert result["route"] == "ESCALATED_TO_HUMAN"
     assert result["escalation"]["reason_code"] == "OUT_OF_CORPUS_SECTOR"
