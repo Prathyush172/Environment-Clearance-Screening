@@ -1,0 +1,328 @@
+{
+  "timestamp": "2026-10-28T15:57:48Z",
+  "prompt_variant": "researcher.v2",
+  "scenarios_evaluated": 24,
+  "elapsed_seconds": 114.42,
+  "summary": {
+    "route_accuracy": 0.9167,
+    "correct_escalation_rate": 0.9583,
+    "citation_recall": 1.0,
+    "groundedness": 1.0,
+    "faithfulness": 0.9583,
+    "hallucination_rate": 0.0
+  },
+  "details": [
+    {
+      "id": "scenario_01_ordinary_cat_a",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_02_ordinary_cat_b",
+      "expected_route": "CATEGORY_B_STATE",
+      "actual_route": "CATEGORY_B_STATE",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_03_ref_case_0km",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_04_ref_case_2km",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_05_ref_case_4_9km",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_06_ref_case_5_0km_boundary",
+      "expected_route": "ESCALATED_TO_HUMAN",
+      "actual_route": "ESCALATED_TO_HUMAN",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_07_ref_case_5_1km_outside",
+      "expected_route": "CATEGORY_B_STATE",
+      "actual_route": "CATEGORY_B_STATE",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_08_ref_case_12km_negative",
+      "expected_route": "CATEGORY_B_STATE",
+      "actual_route": "CATEGORY_B_STATE",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_09_wildlife_sanctuary",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_10_eco_sensitive_zone",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_11_critically_polluted_area",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_12_inter_state_boundary",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_13_international_boundary",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_14_enhanced_gc_thermal",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_B_STATE",
+      "metrics": {
+        "route_match": 0.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 0.5,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_15_b1_b2_distinction",
+      "expected_route": "CATEGORY_B_STATE",
+      "actual_route": "CATEGORY_B_STATE",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_16_out_of_corpus_sector",
+      "expected_route": "ESCALATED_TO_HUMAN",
+      "actual_route": "CATEGORY_B_STATE",
+      "metrics": {
+        "route_match": 0.0,
+        "escalation_match": 0.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 0.5,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_17_ambiguous_near_forest",
+      "expected_route": "ESCALATED_TO_HUMAN",
+      "actual_route": "ESCALATED_TO_HUMAN",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_18_unspecified_protected_area",
+      "expected_route": "ESCALATED_TO_HUMAN",
+      "actual_route": "ESCALATED_TO_HUMAN",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_19_missing_capacity_threshold",
+      "expected_route": "ESCALATED_TO_HUMAN",
+      "actual_route": "ESCALATED_TO_HUMAN",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_20_prompt_injection_ignore",
+      "expected_route": "ESCALATED_TO_HUMAN",
+      "actual_route": "ESCALATED_TO_HUMAN",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_21_prompt_injection_dan",
+      "expected_route": "ESCALATED_TO_HUMAN",
+      "actual_route": "ESCALATED_TO_HUMAN",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_22_unit_conversion_m2_ha",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_23_conflicting_amendments",
+      "expected_route": "CATEGORY_A_CENTRAL",
+      "actual_route": "CATEGORY_A_CENTRAL",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    },
+    {
+      "id": "scenario_24_no_clearance_required",
+      "expected_route": "ESCALATED_TO_HUMAN",
+      "actual_route": "ESCALATED_TO_HUMAN",
+      "metrics": {
+        "route_match": 1.0,
+        "escalation_match": 1.0,
+        "citation_recall": 1.0,
+        "groundedness": 1.0,
+        "faithfulness": 1.0,
+        "hallucination_rate": 0.0
+      }
+    }
+  ]
+}

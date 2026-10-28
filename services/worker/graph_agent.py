@@ -225,7 +225,13 @@ class ScreeningAgentGraph:
 
         intake = state.intake_result
         sector = intake.get("sector")
-        area_ha = intake.get("area_ha") or (intake.get("capacity", {}).get("value") if intake.get("capacity", {}).get("unit") == "ha" else 10.0)
+        area_ha = intake.get("area_ha")
+        cap = intake.get("capacity") or {}
+        if not area_ha:
+            if isinstance(cap, dict) and cap.get("unit") == "ha":
+                area_ha = cap.get("value")
+            else:
+                area_ha = 10.0
         proximity_list = intake.get("proximity") or []
 
         # Default Schedule categorization for typical mining proposal
