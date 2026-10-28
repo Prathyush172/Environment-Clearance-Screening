@@ -7,7 +7,7 @@ setup(
     install_requires=[
         "pydantic>=2.10.0",
         "pydantic-settings>=2.7.0",
-        "sqlalchemy>=2.0.36",
+        "sqlalchemy>=2.0.35",
         "structlog>=24.4.0",
     ],
 )

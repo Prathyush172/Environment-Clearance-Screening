@@ -1,6 +1,6 @@
 celery[redis]==5.4.0
 redis==5.2.0
-sqlalchemy[asyncio]==2.0.36
+sqlalchemy[asyncio]==2.0.35
 asyncpg==0.30.0
 httpx==0.28.0
 chromadb==0.5.20
