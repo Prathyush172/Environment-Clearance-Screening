@@ -104,6 +104,50 @@ SCHEDULE_TITLE: str = (
     "LIST OF PROJECTS OR ACTIVITIES REQUIRING PRIOR ENVIRONMENTAL CLEARANCE"
 )
 
+# Supported Schedule sectors mapped from the EIA Notification 2006 Schedule
+SCHEDULE_SECTORS: dict[str, str] = {
+    "1(a)": "Mining of minerals",
+    "1(b)": "Offshore and onshore oil and gas exploration, development & production",
+    "1(c)": "River Valley Projects",
+    "1(d)": "Thermal Power Plants",
+    "1(e)": "Nuclear power projects",
+    "2(a)": "Coal washeries",
+    "2(b)": "Mineral beneficiation",
+    "2(c)": "Pellet plant",
+    "3(a)": "Metallurgical industries",
+    "3(b)": "Cement plants",
+    "4(a)": "Petroleum refining",
+    "4(b)": "Coke oven plants",
+    "4(c)": "Asbestos milling",
+    "4(d)": "Chlor-alkali industry",
+    "4(e)": "Soda ash Industry",
+    "4(f)": "Skin/hide processing",
+    "5(a)": "Chemical fertilizers",
+    "5(b)": "Pesticides industry",
+    "5(c)": "Petro-chemical complexes",
+    "5(d)": "Manmade fibres",
+    "5(e)": "Petroleum products",
+    "5(f)": "Synthetic organic chemicals industry",
+    "5(g)": "Distilleries",
+    "5(h)": "Integrated paint industry",
+    "5(i)": "Pulp & paper industry",
+    "5(j)": "Sugar Industry",
+    "6(a)": "Oil & gas transportation pipeline",
+    "6(b)": "Isolated storage & handling of hazardous chemicals",
+    "7(a)": "Airports",
+    "7(b)": "All ship breaking yards",
+    "7(c)": "Industrial estates/ parks/ complexes/ areas, EPZs, SEZs, biotech parks, leather complexes",
+    "7(d)": "Common hazardous waste treatment, storage and disposal facilities (TSDFs)",
+    "7(da)": "Bio-Medical Waste Treatment Facilities",
+    "7(e)": "Ports, harbors, break waters, dredging",
+    "7(f)": "Highways",
+    "7(g)": "Aerial ropeways",
+    "7(h)": "Common Effluent Treatment Plants (CETPs)",
+    "7(i)": "Common Municipal Solid Waste Management Facility (CMSWMF)",
+    "8(a)": "Building and Construction projects",
+    "8(b)": "Townships and Area Development projects",
+}
+
 # Cross-reference phrases to build the cross-reference index
 # These are searched in corpus text to link provisions
 CROSS_REFERENCE_PHRASES: list[str] = [

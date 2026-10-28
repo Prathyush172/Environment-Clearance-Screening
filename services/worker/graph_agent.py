@@ -22,6 +22,7 @@ from libs.common.corpus_constants import (
     GC_ENHANCED_DISTANCE_KM,
     GC_ENHANCED_THRESHOLD_ITEMS,
     GC_PROTECTED_AREA_TYPES,
+    SCHEDULE_SECTORS,
 )
 from services.worker.graph_state import AgentState
 from services.worker.tools.registry import (
@@ -71,11 +72,21 @@ class ScreeningAgentGraph:
                 sector = "Highways"
             elif "building" in desc_lower or "construction" in desc_lower:
                 sector = "Building and Construction projects"
+            elif "chemical" in desc_lower or "fertilizer" in desc_lower or "pesticide" in desc_lower:
+                sector = "Synthetic organic chemicals industry"
             else:
                 sector = "UNKNOWN"
 
-        # Check out-of-corpus sector
-        out_of_corpus = sector == "UNKNOWN" or "software development" in desc_lower or "e-commerce" in desc_lower
+        # Check out-of-corpus sector: sector must be in the Schedule or match a known Schedule entry
+        is_known_sector = False
+        if sector and sector != "UNKNOWN":
+            sec_clean = sector.strip().lower()
+            for code, name in SCHEDULE_SECTORS.items():
+                if sec_clean in name.lower() or name.lower() in sec_clean or sec_clean == code.lower():
+                    is_known_sector = True
+                    break
+
+        out_of_corpus = not is_known_sector
         
         # Proximity extraction & entity validation
         proximities = req.get("proximity") or []
@@ -224,7 +235,7 @@ class ScreeningAgentGraph:
         logger.info("node_start", node="draft_determination", run_id=state.run_id)
 
         intake = state.intake_result
-        sector = intake.get("sector")
+        sector = intake.get("sector") or ""
         area_ha = intake.get("area_ha")
         cap = intake.get("capacity") or {}
         if not area_ha:
@@ -234,10 +245,41 @@ class ScreeningAgentGraph:
                 area_ha = 10.0
         proximity_list = intake.get("proximity") or []
 
-        # Default Schedule categorization for typical mining proposal
-        base_category = "CATEGORY_B_STATE"
-        if area_ha and area_ha >= 50.0:
-            base_category = "CATEGORY_A_CENTRAL"
+        # Map sector to Schedule item and baseline category
+        sector_lower = sector.lower()
+        if "thermal" in sector_lower:
+            sector_item = "1(d)"
+            sector_title = "Thermal Power Plants"
+            cap_val = cap.get("value") if isinstance(cap, dict) else None
+            # Item 1(d): >= 500 MW is Category A, < 500 MW is Category B
+            if cap_val and cap_val > 500:
+                base_category = "CATEGORY_A_CENTRAL"
+            else:
+                base_category = "CATEGORY_B_STATE"
+            schedule_quote = "Thermal Power Plants: Coal/lignite based plants < 500 MW are Category B."
+        elif "river valley" in sector_lower:
+            sector_item = "1(c)"
+            sector_title = "River Valley Projects"
+            base_category = "CATEGORY_B_STATE"
+            schedule_quote = "River Valley projects: Hydroelectric power < 50 MW are Category B."
+        elif "industrial estate" in sector_lower or "7(c)" in sector_lower:
+            sector_item = "7(c)"
+            sector_title = "Industrial estates/ parks/ complexes/ areas"
+            base_category = "CATEGORY_B_STATE"
+            schedule_quote = "Industrial estates housing Category B industries area < 500 ha are Category B."
+        elif "chemical" in sector_lower or "5(f)" in sector_lower:
+            sector_item = "5(f)"
+            sector_title = "Synthetic organic chemicals industry"
+            base_category = "CATEGORY_B_STATE"
+            schedule_quote = "Synthetic organic chemicals located in notified industrial area are Category B."
+        else:
+            sector_item = "1(a)"
+            sector_title = sector or "Mining of minerals"
+            if area_ha and area_ha >= 50.0:
+                base_category = "CATEGORY_A_CENTRAL"
+            else:
+                base_category = "CATEGORY_B_STATE"
+            schedule_quote = "Mining of minerals: Projects with lease area < 50 ha are appraised as Category B."
 
         applied_conditions = []
         route = base_category
@@ -248,21 +290,22 @@ class ScreeningAgentGraph:
             dist = float(p.get("distance_km", 999.0))
             ftype = p.get("feature_type", "")
             
-            # Numeric comparison tool execution
+            # Numeric comparison tool execution (passes sector_item to trigger 10 km enhanced rule if applicable)
             cmp_res = tool_compare_threshold(
                 entity_value=dist,
                 unit="km",
-                threshold_text="within 5 km of boundary",
-                sector_item="1(a)" if "mining" in sector.lower() else None
+                threshold_text="within General Condition boundary distance",
+                sector_item=sector_item
             )
             state.tool_call_count += 1
+            threshold_km = cmp_res.get("threshold_value", 5.0)
 
-            # Exact boundary condition test (5.0 km exactly)
+            # Exact boundary condition test
             if cmp_res.get("exact_boundary"):
                 state.escalation_reason = "PROXIMITY_UNCERTAIN"
                 state.escalation_detail = {
                     "reason_code": "PROXIMITY_UNCERTAIN",
-                    "detail": f"Distance ({dist} km) lies precisely on the 5.0 km General Condition statutory threshold boundary.",
+                    "detail": f"Distance ({dist} km) lies precisely on the {threshold_km} km General Condition statutory threshold boundary.",
                     "missing_info": ["High-precision differential GPS survey of nearest boundary point"],
                     "human_checklist": ["Consult MoEFCC / SEIAA boundary reconciliation maps"]
                 }
@@ -275,7 +318,7 @@ class ScreeningAgentGraph:
                 gc_triggered = True
                 applied_conditions.append({
                     "id": "GC_CLAUSE",
-                    "text_summary": f"General Condition triggered: project is located {dist} km from {ftype} (within 5 km statutory limit). Upgraded from Category B to Category A Central.",
+                    "text_summary": f"General Condition triggered: project is located {dist} km from {ftype} (within {threshold_km} km statutory limit). Upgraded from Category B to Category A Central.",
                     "effect": "CATEGORY_B_UPGRADE_TO_A"
                 })
 
@@ -286,46 +329,53 @@ class ScreeningAgentGraph:
             "citation_id": "cite_schedule_1",
             "doc_id": "EIA_Notification_2006",
             "doc_title": "EIA Notification 2006 (as amended)",
-            "clause_ref": "Schedule Item 1(a) Mining of minerals",
-            "chunk_id": "schedule_1a",
-            "quote": "Mining of minerals: Projects with lease area < 50 ha are appraised as Category B.",
+            "clause_ref": f"Schedule Item {sector_item} {sector_title}",
+            "chunk_id": f"schedule_{sector_item.replace('(', '').replace(')', '')}",
+            "quote": schedule_quote,
             "score": 0.95
         })
 
         # 2. General Condition citation if GC evaluated/triggered
         if gc_triggered or proximity_list:
+            gc_quote = (
+                "provided that for River Valley Projects specified in item 1(c), Thermal Power Plants specified in item 1(d)... "
+                "the appraisal shall be made at Central level even if located within 10 km."
+                if sector_item in GC_ENHANCED_THRESHOLD_ITEMS
+                else "within 5 km from the boundary of: (i) Protected Areas notified under the Wild Life (Protection) Act, 1972"
+            )
             citations.append({
                 "citation_id": "cite_gc_1",
                 "doc_id": "EIA_Notification_2006",
                 "doc_title": "EIA Notification 2006 - General Condition",
                 "clause_ref": "General Condition (GC)",
                 "chunk_id": "clause_general_condition",
-                "quote": "within 5 km from the boundary of: (i) Protected Areas notified under the Wild Life (Protection) Act, 1972",
+                "quote": gc_quote,
                 "score": 0.99
             })
 
         # Generate basis
         if route == "CATEGORY_A_CENTRAL" and gc_triggered:
+            gc_limit_text = "10 km (enhanced threshold for specified items)" if sector_item in GC_ENHANCED_THRESHOLD_ITEMS else "5 km"
             basis = (
-                f"Under Item 1(a) of the Schedule to EIA Notification 2006, the proposed {area_ha} ha mining project "
-                f"falls initially under Category B. However, because the site is located within 5 km of a protected area, "
+                f"Under Item {sector_item} ({sector_title}) of the Schedule to EIA Notification 2006, the proposed project "
+                f"falls initially under Category B. However, because the site is located within {gc_limit_text} of a protected area, "
                 f"the General Condition applies by operation of law. Any project specified in Category 'B' located in whole "
-                f"or in part within 5 km from the boundary of a Protected Area notified under the Wild Life (Protection) Act, 1972 "
+                f"or in part within the specified distance from the boundary of a Protected Area notified under the Wild Life (Protection) Act, 1972 "
                 f"must be appraised at the Central Level as Category 'A'."
             )
         elif route == "CATEGORY_B_STATE":
             basis = (
-                f"Under the Schedule to EIA Notification 2006, the project falls under Category B. The General Condition "
-                f"was checked, and no sensitive proximity feature was found within the 5 km statutory threshold; therefore "
-                f"the project remains under State Level appraisal (Category B)."
+                f"Under Item {sector_item} ({sector_title}) of the Schedule to EIA Notification 2006, the project falls under Category B. "
+                f"The General Condition was checked, and no sensitive proximity feature was found within the applicable statutory threshold; "
+                f"therefore the project remains under State Level appraisal (Category B)."
             )
         else:
-            basis = f"The project is determined as {route} in accordance with Schedule thresholds."
+            basis = f"The project is determined as {route} in accordance with Schedule thresholds for Item {sector_item} ({sector_title})."
 
         state.draft_determination = {
             "proposed_route": route,
             "basis": basis,
-            "schedule_entry": {"item_no": "1(a)", "sector": sector, "category_by_schedule": "Category B"},
+            "schedule_entry": {"item_no": sector_item, "sector": sector_title, "category_by_schedule": "Category B"},
             "conditions_applied": applied_conditions,
             "citations": citations,
         }

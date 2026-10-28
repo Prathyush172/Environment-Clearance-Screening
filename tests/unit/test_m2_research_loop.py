@@ -137,3 +137,28 @@ def test_out_of_corpus_escalates():
 
     assert result["route"] == "ESCALATED_TO_HUMAN"
     assert result["escalation"]["reason_code"] == "OUT_OF_CORPUS_SECTOR"
+
+
+def test_enhanced_general_condition_thermal_10km():
+    """Regression test: Thermal power plants (Schedule Item 1(d)) trigger enhanced 10 km General Condition.
+    A project at 7 km (< 10 km) must upgrade to CATEGORY_A_CENTRAL citing Item 1(d) and GC.
+    """
+    graph = ScreeningAgentGraph()
+    req = {
+        "client_id": "client-thermal",
+        "project_name": "Thermal Power Plant 7km from Park",
+        "description": "Thermal power plant located 7 km from national park boundary.",
+        "sector_hint": "Thermal Power Plants",
+        "capacity": {"value": 500, "unit": "MW"},
+        "location": {"state": "Madhya Pradesh"},
+        "proximity": [{"feature_type": "national_park", "distance_km": 7.0, "name": "Kanha National Park"}]
+    }
+
+    result = asyncio.run(graph.run("run-thermal-7km", req, "corr-thermal-7km"))
+
+    assert result["route"] == "CATEGORY_A_CENTRAL"
+    assert any("1(d)" in c["clause_ref"] for c in result["citations"])
+    assert any("General Condition" in c["clause_ref"] for c in result["citations"])
+    gc_cite = next(c for c in result["citations"] if "General Condition" in c["clause_ref"])
+    assert "10 km" in gc_cite["quote"]
+

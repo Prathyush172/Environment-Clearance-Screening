@@ -1,14 +1,14 @@
 {
-  "timestamp": "2026-10-28T16:27:49Z",
+  "timestamp": "2026-10-28T16:44:43Z",
   "prompt_variant": "researcher.v2",
   "scenarios_evaluated": 24,
-  "elapsed_seconds": 104.67,
+  "elapsed_seconds": 95.25,
   "summary": {
-    "route_accuracy": 0.9167,
-    "correct_escalation_rate": 0.9583,
+    "route_accuracy": 1.0,
+    "correct_escalation_rate": 1.0,
     "citation_recall": 1.0,
     "groundedness": 1.0,
-    "faithfulness": 0.9583,
+    "faithfulness": 1.0,
     "hallucination_rate": 0.0
   },
   "details": [
@@ -184,13 +184,13 @@
     {
       "id": "scenario_14_enhanced_gc_thermal",
       "expected_route": "CATEGORY_A_CENTRAL",
-      "actual_route": "CATEGORY_B_STATE",
+      "actual_route": "CATEGORY_A_CENTRAL",
       "metrics": {
-        "route_match": 0.0,
+        "route_match": 1.0,
         "escalation_match": 1.0,
         "citation_recall": 1.0,
         "groundedness": 1.0,
-        "faithfulness": 0.5,
+        "faithfulness": 1.0,
         "hallucination_rate": 0.0
       }
     },
@@ -210,13 +210,13 @@
     {
       "id": "scenario_16_out_of_corpus_sector",
       "expected_route": "ESCALATED_TO_HUMAN",
-      "actual_route": "CATEGORY_B_STATE",
+      "actual_route": "ESCALATED_TO_HUMAN",
       "metrics": {
-        "route_match": 0.0,
-        "escalation_match": 0.0,
+        "route_match": 1.0,
+        "escalation_match": 1.0,
         "citation_recall": 1.0,
         "groundedness": 1.0,
-        "faithfulness": 0.5,
+        "faithfulness": 1.0,
         "hallucination_rate": 0.0
       }
     },
