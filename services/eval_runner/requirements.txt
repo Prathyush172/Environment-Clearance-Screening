@@ -2,3 +2,4 @@ httpx==0.28.0
 pydantic==2.10.2
 click==8.1.7
 structlog==24.4.0
+chromadb==0.5.20

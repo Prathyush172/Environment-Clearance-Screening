@@ -4,8 +4,24 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from services.api.main import app
+from services.api.auth import get_current_user
+from libs.common.db.models import User
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def override_auth():
+    app.dependency_overrides[get_current_user] = lambda: User(
+        id="test-officer-id",
+        username="officer",
+        email="officer@eia.gov.in",
+        role="user",
+        client_id="valid-client-01",
+        is_active=True,
+    )
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_health_endpoint():

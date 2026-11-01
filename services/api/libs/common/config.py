@@ -14,8 +14,9 @@ class Settings(BaseSettings):
 
     # === LLM PROVIDER CONFIG ===
     LLM_PROVIDER: str = "stub"
-    LLM_MODEL_ID: str = "gpt-4o"
+    LLM_MODEL_ID: str = "gemini-3-flash-preview"
     LLM_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
     LLM_BASE_URL: Optional[str] = None
 
     # === FALLBACK LLM ===
@@ -43,10 +44,19 @@ class Settings(BaseSettings):
     CHROMA_HOST: str = "chroma"
     CHROMA_PORT: int = 8000
     CHROMA_COLLECTION_NAME: str = "eia_corpus"
+    CHROMA_PERSIST_DIRECTORY: str = "./data/chroma"
+    CHROMA_URL: Optional[str] = None
 
     # === ADMIN ===
     ADMIN_TOKEN: str = "change-me-admin-token-32chars-min"
     ADMIN_FAULTS_ENABLED: bool = False
+
+    # === AUTH ===
+    JWT_SECRET_KEY: str = "change-me-jwt-secret-key-32chars-min-dev-only"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    AUTH_MAX_FAILED_ATTEMPTS: int = 5
+    AUTH_LOCKOUT_MINUTES: int = 5
 
     # === LLM STUB ===
     STUB_DELAY_MS_MIN: int = 1500
@@ -85,6 +95,7 @@ class Settings(BaseSettings):
     VERIFIER_HOST: str = "verifier"
     VERIFIER_PORT: int = 8001
     VERIFIER_TIMEOUT_S: int = 30
+    VERIFIER_URL: Optional[str] = None
 
     # === FEATURE FLAGS ===
     FEATURE_MODIFIER_CHECK_ENABLED: bool = True

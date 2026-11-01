@@ -157,6 +157,12 @@ if __name__ == "__main__":
     parser.add_argument("--set", default="eval/scenarios.jsonl", help="Path to scenarios JSONL")
     parser.add_argument("--prompt-variant", default="researcher.v2", help="Prompt variant ID")
     parser.add_argument("--out", default=None, help="Output JSON path")
+    parser.add_argument("--provider", default=None, help="LLM Provider override (stub, gemini)")
     args = parser.parse_args()
+
+    if args.provider:
+        from libs.common.config import settings
+        settings.LLM_PROVIDER = args.provider
+        settings.VERIFIER_LLM_PROVIDER = args.provider
 
     asyncio.run(run_batch_eval(args.set, args.prompt_variant, args.out))

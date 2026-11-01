@@ -35,6 +35,18 @@ class AgentState(BaseModel):
     escalation_detail: Optional[Dict[str, Any]] = None
     is_terminal: bool = False
     route: Optional[str] = None
+
+    # LLM Usage & Cost Tracking
+    llm_tokens: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "thoughts_tokens": 0,
+            "total_tokens": 0,
+            "cost_usd": 0.0,
+            "models_invoked": [],
+        }
+    )
     
     # Final Result
     final_result: Optional[Dict[str, Any]] = None

@@ -227,6 +227,8 @@ def get_target_url(provider: str, base_url: Optional[str]) -> str:
         return f"http://{stub_host}:{stub_port}/v1/chat/completions"
     elif base_url:
         return f"{base_url.rstrip('/')}/v1/chat/completions"
+    elif provider == "gemini":
+        return "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
     elif provider == "openai":
         return "https://api.openai.com/v1/chat/completions"
     return "http://llm-stub:8080/v1/chat/completions"
@@ -235,7 +237,7 @@ def get_target_url(provider: str, base_url: Optional[str]) -> str:
 def get_auth_headers(provider: str) -> Dict[str, str]:
     headers = {}
     if provider != "stub":
-        key = settings.LLM_API_KEY
+        key = settings.LLM_API_KEY or getattr(settings, "GEMINI_API_KEY", None) or os.getenv("GEMINI_API_KEY")
         if key:
             headers["Authorization"] = f"Bearer {key}"
     return headers

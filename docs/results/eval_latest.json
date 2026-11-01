@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-10-28T16:44:43Z",
+  "timestamp": "2026-10-29T16:07:33Z",
   "prompt_variant": "researcher.v2",
   "scenarios_evaluated": 24,
-  "elapsed_seconds": 95.25,
+  "elapsed_seconds": 122.17,
   "summary": {
     "route_accuracy": 1.0,
     "correct_escalation_rate": 1.0,

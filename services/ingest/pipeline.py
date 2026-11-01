@@ -58,29 +58,24 @@ def discover_pdfs(corpus_dir: str) -> List[Dict[str, str]]:
 
 
 def extract_text(pdf_path: str) -> List[Dict[str, Any]]:
-    """Extract text from PDF pages using pdfplumber with OCR fallback."""
+    """Extract text from PDF pages using PyMuPDF (fitz) with pdfplumber fallback."""
     pages = []
+    try:
+        import fitz
+        doc = fitz.open(pdf_path)
+        for idx, page in enumerate(doc):
+            page_text = page.get_text() or ""
+            pages.append({"page_number": idx + 1, "text": page_text})
+        if pages:
+            return pages
+    except Exception:
+        pass
+
     try:
         import pdfplumber
         with pdfplumber.open(pdf_path) as pdf:
             for idx, page in enumerate(pdf.pages):
                 page_text = page.extract_text() or ""
-                # Check for low text density (possible scanned page)
-                if len(page_text.strip()) < 50:
-                    try:
-                        import fitz  # PyMuPDF
-                        doc = fitz.open(pdf_path)
-                        fitz_page = doc[idx]
-                        pix = fitz_page.get_pixmap()
-                        import pytesseract
-                        from PIL import Image
-                        import io
-                        img = Image.open(io.BytesIO(pix.tobytes()))
-                        ocr_text = pytesseract.image_to_string(img)
-                        if len(ocr_text.strip()) > len(page_text.strip()):
-                            page_text = ocr_text
-                    except Exception:
-                        pass
                 pages.append({"page_number": idx + 1, "text": page_text})
     except Exception as exc:
         logger.error("Failed to extract text from PDF", pdf_path=pdf_path, error=str(exc))
@@ -151,11 +146,11 @@ def embed_chunks(chunks: List[Dict[str, Any]]) -> List[List[float]]:
         return [[0.0] * 384 for _ in texts]
 
 
-def upsert_to_chroma(chunks: List[Dict[str, Any]], embeddings: List[List[float]]) -> int:
+def upsert_to_chroma(chunks: List[Dict[str, Any]], embeddings: Optional[List[List[float]]] = None) -> int:
     """Upsert chunks with embeddings to ChromaDB."""
     try:
-        import chromadb
-        client = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
+        from services.worker.tools.retrieval import get_chroma_client
+        client = get_chroma_client()
         collection = client.get_or_create_collection(
             name=settings.CHROMA_COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"}
@@ -163,17 +158,31 @@ def upsert_to_chroma(chunks: List[Dict[str, Any]], embeddings: List[List[float]]
 
         ids = [c["chunk_id"] for c in chunks]
         texts = [c["text"] for c in chunks]
-        metadatas = [c.get("metadata", {}) for c in chunks]
+        # Ensure metadata values are str, int, float, or bool for ChromaDB
+        metadatas = []
+        for c in chunks:
+            raw_meta = c.get("metadata", {})
+            clean_meta = {}
+            for k, v in raw_meta.items():
+                if isinstance(v, (str, int, float, bool)):
+                    clean_meta[k] = v
+                elif v is None:
+                    continue
+                else:
+                    clean_meta[k] = str(v)
+            metadatas.append(clean_meta)
 
         # Chroma handles batches of up to 500
         batch_size = 200
         for i in range(0, len(ids), batch_size):
-            collection.upsert(
-                ids=ids[i:i + batch_size],
-                embeddings=embeddings[i:i + batch_size],
-                documents=texts[i:i + batch_size],
-                metadatas=metadatas[i:i + batch_size],
-            )
+            batch_kwargs = {
+                "ids": ids[i:i + batch_size],
+                "documents": texts[i:i + batch_size],
+                "metadatas": metadatas[i:i + batch_size],
+            }
+            if embeddings and len(embeddings) == len(ids):
+                batch_kwargs["embeddings"] = embeddings[i:i + batch_size]
+            collection.upsert(**batch_kwargs)
         return len(ids)
     except Exception as exc:
         logger.error("Chroma upsert failed", error=str(exc))
@@ -266,25 +275,28 @@ async def run_pipeline(corpus_dir: str, reembed: bool = False, only: Optional[st
     embeddings = embed_chunks(all_chunks)
     upserted = upsert_to_chroma(all_chunks, embeddings)
 
-    # Store indexes and manifest in Postgres
-    async with get_db_session() as session:
-        await build_clause_index(all_chunks, session, index_version)
-        await build_cross_ref_index(all_chunks, session, index_version)
+    # Store indexes and manifest in Postgres if available
+    try:
+        async with get_db_session() as session:
+            await build_clause_index(all_chunks, session, index_version)
+            await build_cross_ref_index(all_chunks, session, index_version)
 
-        elapsed = time.time() - start_time
-        throughput = (len(all_chunks) / elapsed) if elapsed > 0 else 0.0
+            elapsed = time.time() - start_time
+            throughput = (len(all_chunks) / elapsed) if elapsed > 0 else 0.0
 
-        manifest = IndexManifest(
-            id=str(uuid.uuid4()),
-            doc_count=len(pdfs),
-            chunk_count=len(all_chunks),
-            embedding_model=settings.EMBEDDING_MODEL,
-            embedding_version="1.0.0",
-            index_version=index_version,
-            throughput_chunks_per_sec=round(throughput, 2),
-            source_hashes_json=source_hashes,
-        )
-        session.add(manifest)
+            manifest = IndexManifest(
+                id=str(uuid.uuid4()),
+                doc_count=len(pdfs),
+                chunk_count=len(all_chunks),
+                embedding_model=settings.EMBEDDING_MODEL,
+                embedding_version="1.0.0",
+                index_version=index_version,
+                throughput_chunks_per_sec=round(throughput, 2),
+                source_hashes_json=source_hashes,
+            )
+            session.add(manifest)
+    except Exception as exc:
+        logger.info("Postgres session unavailable, skipping Postgres manifest indexing", error=str(exc))
 
     logger.info("Ingest pipeline finished", index_version=index_version, chunks_upserted=upserted)
     return {

@@ -1,16 +1,20 @@
 """Quarantine inspection router for rejected screening requests."""
 
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy import select, desc
 from libs.common.db.session import get_db_session
-from libs.common.db.models import Quarantine
+from libs.common.db.models import Quarantine, User
+from services.api.auth import require_role
 
 router = APIRouter(prefix="/v1/quarantine", tags=["quarantine"])
 
 
 @router.get("/{quarantine_id}")
-async def get_quarantined_record(quarantine_id: str):
+async def get_quarantined_record(
+    quarantine_id: str,
+    current_user: User = Depends(require_role("admin", "auditor")),
+):
     async with get_db_session() as session:
         query = select(Quarantine).where(Quarantine.id == quarantine_id)
         res = await session.execute(query)
@@ -32,6 +36,7 @@ async def get_quarantined_record(quarantine_id: str):
 async def list_quarantined_records(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_role("admin", "auditor")),
 ):
     async with get_db_session() as session:
         query = (

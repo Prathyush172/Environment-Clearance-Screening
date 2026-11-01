@@ -1,5 +1,8 @@
 """SQLAlchemy async session management."""
 
+import os
+import socket
+from urllib.parse import urlparse
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import (
@@ -17,13 +20,45 @@ _session_factory = None
 def get_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
-        _engine = create_async_engine(
-            settings.DATABASE_URL,
-            echo=(settings.ENVIRONMENT == "development" and settings.LOG_LEVEL == "DEBUG"),
-            pool_pre_ping=True,
-            pool_size=10,
-            max_overflow=20,
-        )
+        db_url = settings.DATABASE_URL
+        if "postgres" in db_url:
+            is_postgres_available = False
+            try:
+                parsed = urlparse(db_url)
+                host = parsed.hostname or "localhost"
+                port = parsed.port or 5432
+                socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+                is_postgres_available = True
+            except Exception:
+                is_postgres_available = False
+
+            if not is_postgres_available:
+                os.makedirs("./data", exist_ok=True)
+                db_url = "sqlite+aiosqlite:///./data/eia_service.db"
+
+        if "sqlite" in db_url:
+            _engine = create_async_engine(db_url, echo=False)
+            from libs.common.db.models import Base
+            import asyncio
+            async def _init_tables():
+                async with _engine.begin() as conn:
+                    await conn.run_sync(Base.metadata.create_all)
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(_init_tables())
+                else:
+                    asyncio.run(_init_tables())
+            except Exception:
+                pass
+        else:
+            _engine = create_async_engine(
+                db_url,
+                echo=(settings.ENVIRONMENT == "development" and settings.LOG_LEVEL == "DEBUG"),
+                pool_pre_ping=True,
+                pool_size=10,
+                max_overflow=20,
+            )
     return _engine
 
 

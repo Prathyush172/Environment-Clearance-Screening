@@ -10,6 +10,7 @@ venv/
 node_modules/
 *.log
 chroma_data/
+data/
 postgres_data/
 redis_data/
 prometheus_data/

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Send, Sparkles, AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const INDIAN_STATES = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -145,9 +146,16 @@ export const NewScreening: React.FC = () => {
     }
 
     try {
+      const token = localStorage.getItem("eia_auth_token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const res = await fetch("/api/v1/screenings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
+        credentials: "include",
         body: JSON.stringify(payload)
       });
       const data = await res.json();

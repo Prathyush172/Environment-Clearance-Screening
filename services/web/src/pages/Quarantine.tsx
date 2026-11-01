@@ -5,7 +5,11 @@ export const Quarantine: React.FC = () => {
   const [items, setItems] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/api/v1/quarantine?limit=10')
+    const token = localStorage.getItem("eia_auth_token");
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    fetch('/api/v1/quarantine?limit=10', { headers, credentials: "include" })
       .then(res => res.json())
       .then(data => setItems(data.items || []))
       .catch(() => {});

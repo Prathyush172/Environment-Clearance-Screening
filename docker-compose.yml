@@ -36,6 +36,8 @@ services:
     image: chromadb/chroma:0.5.20
     volumes:
       - chroma_data:/chroma/chroma
+    ports:
+      - "8004:8000"
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=FALSE
@@ -98,6 +100,8 @@ services:
     build:
       context: ./services/verifier
       dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
     environment:
       <<: *common-env
     depends_on:

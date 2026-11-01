@@ -11,6 +11,7 @@ Enforces:
 
 import time
 import asyncio
+import json
 from typing import Dict, Any, List, Optional
 import httpx
 
@@ -46,6 +47,26 @@ class ScreeningAgentGraph:
         self.max_verify_attempts = settings.MAX_VERIFY_ATTEMPTS
         self.wall_clock_timeout = settings.RUN_WALL_CLOCK_SECONDS
 
+        # Initialize Gemini Client if provider is configured
+        self.gemini_client = None
+        provider = (getattr(settings, "LLM_PROVIDER", None) or "stub").lower()
+        api_key = (
+            getattr(settings, "LLM_API_KEY", None)
+            or getattr(settings, "GEMINI_API_KEY", None)
+            or os.getenv("LLM_API_KEY")
+            or os.getenv("GEMINI_API_KEY")
+        )
+        if provider == "gemini" and api_key:
+            try:
+                from libs.common.llm.gemini import GeminiClient
+                self.gemini_client = GeminiClient(
+                    api_key=api_key,
+                    model_id=getattr(settings, "LLM_MODEL_ID", None) or os.getenv("LLM_MODEL_ID"),
+                )
+                logger.info("gemini_screening_client_initialized", model=self.gemini_client.model_id)
+            except Exception as exc:
+                logger.warning("gemini_screening_client_init_failed", error=str(exc))
+
     # =========================================================================
     # Node 1: Intake & Classification Agent
     # =========================================================================
@@ -57,12 +78,51 @@ class ScreeningAgentGraph:
         req = state.request_data
         desc = req.get("description", "")
         sector_hint = req.get("sector_hint")
-        
+        desc_lower = desc.lower()
+
+        # Step 1: LLM-assisted project understanding & structured entity extraction
+        llm_extracted = None
+        if self.gemini_client is not None:
+            try:
+                from libs.common.llm.schemas import IntakeExtractionSchema
+                prompt = (
+                    f"Analyze this environmental clearance screening request and extract structured entities:\n\n"
+                    f"Project Description: {desc}\n"
+                    f"Provided Sector Hint: {sector_hint or 'None'}\n"
+                    f"Explicit Proximities: {json.dumps(req.get('proximity') or [])}\n"
+                    f"Explicit Capacity: {json.dumps(req.get('capacity') or {})}\n"
+                    f"Explicit Area (ha): {req.get('area_ha')}\n\n"
+                    f"Known Schedule Sectors: {json.dumps(list(SCHEDULE_SECTORS.values()))}\n\n"
+                    f"Extract the classified sector name, capacity/area, and spatial proximities.\n"
+                    f"If the activity is completely unrelated to environmental impact activities listed in the EIA Notification (e.g. software development, IT services, commercial offices), set is_out_of_corpus=True.\n"
+                    f"If proximity to a sensitive area is stated without a numeric distance, mark is_ambiguous=True."
+                )
+                extraction, meta = await asyncio.to_thread(
+                    self.gemini_client.generate_structured,
+                    prompt=prompt,
+                    response_schema=IntakeExtractionSchema,
+                    system_instruction="You are an expert Indian Environmental Clearance classification system.",
+                )
+                llm_extracted = extraction
+
+                # Track token usage
+                state.llm_tokens["prompt_tokens"] += meta.get("prompt_tokens", 0)
+                state.llm_tokens["completion_tokens"] += meta.get("completion_tokens", 0)
+                state.llm_tokens["thoughts_tokens"] += meta.get("thoughts_tokens", 0)
+                state.llm_tokens["total_tokens"] += meta.get("total_tokens", 0)
+                state.llm_tokens["cost_usd"] += meta.get("cost_usd", 0.0)
+                if meta.get("model_invoked") and meta.get("model_invoked") not in state.llm_tokens["models_invoked"]:
+                    state.llm_tokens["models_invoked"].append(meta.get("model_invoked"))
+            except Exception as exc:
+                logger.warning("gemini_intake_call_failed", error=str(exc))
+
         # Sector classification logic
         sector = sector_hint
-        desc_lower = desc.lower()
         if not sector:
-            if "mining" in desc_lower or "quarry" in desc_lower or "granite" in desc_lower or "mineral" in desc_lower:
+            if llm_extracted and llm_extracted.classified_sector:
+                # Use Gemini classified sector
+                sector = llm_extracted.classified_sector
+            elif "mining" in desc_lower or "quarry" in desc_lower or "granite" in desc_lower or "mineral" in desc_lower:
                 sector = "Mining of minerals"
             elif "thermal" in desc_lower or "power plant" in desc_lower or "coal" in desc_lower:
                 sector = "Thermal Power Plants"
@@ -87,11 +147,24 @@ class ScreeningAgentGraph:
                     break
 
         out_of_corpus = not is_known_sector
+        if llm_extracted and llm_extracted.is_out_of_corpus and not is_known_sector:
+            out_of_corpus = True
         
         # Proximity extraction & entity validation
         proximities = req.get("proximity") or []
         ambiguous_proximity = False
         ambiguity_reason = None
+
+        if not proximities and llm_extracted and llm_extracted.proximities:
+            for pe in llm_extracted.proximities:
+                if pe.distance_km is not None:
+                    proximities.append({
+                        "feature_type": pe.feature_type,
+                        "distance_km": pe.distance_km,
+                    })
+                elif pe.is_ambiguous:
+                    ambiguous_proximity = True
+                    ambiguity_reason = f"Proximity described ambiguously ({pe.raw_distance_text or pe.feature_type}) without numeric distance."
         
         # Textual proximity mentions check
         ambiguous_phrases = ["near a forest", "close to park", "adjacent to boundary", "near national park", "near river"]
@@ -107,13 +180,22 @@ class ScreeningAgentGraph:
                 ambiguous_proximity = True
                 ambiguity_reason = "Unspecified protected area type cannot be mapped to statutory General Condition criteria."
 
+        # Extract capacity and area
+        capacity = req.get("capacity")
+        if not capacity and llm_extracted and llm_extracted.capacity_value is not None:
+            capacity = {"value": llm_extracted.capacity_value, "unit": llm_extracted.capacity_unit or ""}
+
+        area_ha = req.get("area_ha")
+        if not area_ha and llm_extracted and llm_extracted.area_ha is not None:
+            area_ha = llm_extracted.area_ha
+
         state.intake_result = {
             "sector": sector,
             "out_of_corpus": out_of_corpus,
             "ambiguous_proximity": ambiguous_proximity,
             "ambiguity_reason": ambiguity_reason,
-            "capacity": req.get("capacity"),
-            "area_ha": req.get("area_ha"),
+            "capacity": capacity,
+            "area_ha": area_ha,
             "location": req.get("location"),
             "proximity": proximities,
         }
@@ -356,7 +438,7 @@ class ScreeningAgentGraph:
         # Generate basis
         if route == "CATEGORY_A_CENTRAL" and gc_triggered:
             gc_limit_text = "10 km (enhanced threshold for specified items)" if sector_item in GC_ENHANCED_THRESHOLD_ITEMS else "5 km"
-            basis = (
+            default_basis = (
                 f"Under Item {sector_item} ({sector_title}) of the Schedule to EIA Notification 2006, the proposed project "
                 f"falls initially under Category B. However, because the site is located within {gc_limit_text} of a protected area, "
                 f"the General Condition applies by operation of law. Any project specified in Category 'B' located in whole "
@@ -364,13 +446,52 @@ class ScreeningAgentGraph:
                 f"must be appraised at the Central Level as Category 'A'."
             )
         elif route == "CATEGORY_B_STATE":
-            basis = (
+            default_basis = (
                 f"Under Item {sector_item} ({sector_title}) of the Schedule to EIA Notification 2006, the project falls under Category B. "
                 f"The General Condition was checked, and no sensitive proximity feature was found within the applicable statutory threshold; "
                 f"therefore the project remains under State Level appraisal (Category B)."
             )
         else:
-            basis = f"The project is determined as {route} in accordance with Schedule thresholds for Item {sector_item} ({sector_title})."
+            default_basis = f"The project is determined as {route} in accordance with Schedule thresholds for Item {sector_item} ({sector_title})."
+
+        basis = default_basis
+        if self.gemini_client is not None:
+            try:
+                from libs.common.llm.schemas import GroundedRegulatoryExplanation
+                passages_summary = "\n".join([f"- [{c.get('clause_ref', '')}]: {c.get('quote', '')}" for c in citations])
+                explanation_prompt = (
+                    f"Draft an evidence-grounded regulatory screening basis for this environmental clearance determination:\n\n"
+                    f"Project: {intake.get('sector')}\n"
+                    f"Schedule Item: {sector_item} ({sector_title})\n"
+                    f"Determined Clearance Route: {route}\n"
+                    f"General Condition Triggered: {gc_triggered}\n"
+                    f"Applied Conditions: {json.dumps(applied_conditions)}\n\n"
+                    f"Retrieved Statutory Passages & Citations:\n{passages_summary}\n\n"
+                    f"Standard Legal Guidance Template:\n{default_basis}\n\n"
+                    f"Requirements:\n"
+                    f"1. Explain the legal basis grounded strictly in the cited clauses of the EIA Notification 2006.\n"
+                    f"2. Explicitly reference the statutory Schedule thresholds and General Condition distance criteria (5 km vs 10 km).\n"
+                    f"3. Do not invent ungrounded statutory provisions."
+                )
+                exp, meta = await asyncio.to_thread(
+                    self.gemini_client.generate_structured,
+                    prompt=explanation_prompt,
+                    response_schema=GroundedRegulatoryExplanation,
+                    system_instruction="You are an uncompromising environmental regulatory counsel drafting a formal pre-screening determination opinion.",
+                )
+                if exp.regulatory_basis:
+                    basis = exp.regulatory_basis
+
+                # Track token usage
+                state.llm_tokens["prompt_tokens"] += meta.get("prompt_tokens", 0)
+                state.llm_tokens["completion_tokens"] += meta.get("completion_tokens", 0)
+                state.llm_tokens["thoughts_tokens"] += meta.get("thoughts_tokens", 0)
+                state.llm_tokens["total_tokens"] += meta.get("total_tokens", 0)
+                state.llm_tokens["cost_usd"] += meta.get("cost_usd", 0.0)
+                if meta.get("model_invoked") and meta.get("model_invoked") not in state.llm_tokens["models_invoked"]:
+                    state.llm_tokens["models_invoked"].append(meta.get("model_invoked"))
+            except Exception as exc:
+                logger.warning("gemini_explanation_draft_failed", error=str(exc))
 
         state.draft_determination = {
             "proposed_route": route,
@@ -396,26 +517,56 @@ class ScreeningAgentGraph:
         state.verification_attempts += 1
         logger.info("node_start", node="send_to_verifier", run_id=state.run_id, attempt=state.verification_attempts)
 
-        verifier_url = f"http://{settings.VERIFIER_HOST}:{settings.VERIFIER_PORT}/v1/verify"
+        candidate_urls = []
+        if getattr(settings, "VERIFIER_URL", None):
+            candidate_urls.append(settings.VERIFIER_URL)
+        if settings.VERIFIER_HOST in ["localhost", "127.0.0.1"]:
+            candidate_urls.append(f"http://{settings.VERIFIER_HOST}:{settings.VERIFIER_PORT}/v1/verify")
+        else:
+            # Local host candidate first for quick response when running outside Docker
+            candidate_urls.append(f"http://127.0.0.1:{settings.VERIFIER_PORT}/v1/verify")
+            candidate_urls.append(f"http://localhost:{settings.VERIFIER_PORT}/v1/verify")
+            candidate_urls.append(f"http://{settings.VERIFIER_HOST}:{settings.VERIFIER_PORT}/v1/verify")
+
         payload = {
             "run_id": state.run_id,
             "draft": state.draft_determination,
             "retrieved_passages": state.retrieved_passages,
         }
 
-        try:
-            async with httpx.AsyncClient(timeout=float(settings.VERIFIER_TIMEOUT_S)) as client:
-                resp = await client.post(verifier_url, json=payload)
-                if resp.status_code == 200:
-                    v_report = resp.json()
-                    state.verification_report = v_report
-                else:
-                    raise RuntimeError(f"Verifier returned HTTP {resp.status_code}")
-        except Exception as exc:
-            logger.warning("verifier_call_failed", error=str(exc))
-            # Resilient in-process verifier fallback
-            v_report = self._local_verify(state.draft_determination, state.retrieved_passages)
-            state.verification_report = v_report
+        v_report = None
+        timeout = float(settings.VERIFIER_TIMEOUT_S)
+        for url in candidate_urls:
+            try:
+                async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=1.5)) as client:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        v_report = resp.json()
+                        break
+            except Exception:
+                continue
+
+        # If no external HTTP socket was reachable, invoke the Verifier directly in-process
+        if v_report is None:
+            try:
+                from services.verifier.main import verify_draft, VerificationRequest
+                v_report = await verify_draft(VerificationRequest(**payload))
+            except Exception as exc:
+                logger.warning("verifier_call_failed", error=str(exc))
+                v_report = self._local_verify(state.draft_determination, state.retrieved_passages)
+
+        state.verification_report = v_report or self._local_verify(state.draft_determination, state.retrieved_passages)
+
+        # Incorporate verifier tokens if Gemini was invoked in verifier
+        if isinstance(state.verification_report, dict) and state.verification_report.get("verifier_meta"):
+            vmeta = state.verification_report["verifier_meta"]
+            state.llm_tokens["prompt_tokens"] += vmeta.get("prompt_tokens", 0)
+            state.llm_tokens["completion_tokens"] += vmeta.get("completion_tokens", 0)
+            state.llm_tokens["thoughts_tokens"] += vmeta.get("thoughts_tokens", 0)
+            state.llm_tokens["total_tokens"] += vmeta.get("total_tokens", 0)
+            state.llm_tokens["cost_usd"] += vmeta.get("cost_usd", 0.0)
+            if vmeta.get("model_invoked") and vmeta.get("model_invoked") not in state.llm_tokens["models_invoked"]:
+                state.llm_tokens["models_invoked"].append(vmeta.get("model_invoked"))
 
         if not state.verification_report.get("passed", False):
             if state.verification_attempts >= self.max_verify_attempts:
@@ -435,20 +586,32 @@ class ScreeningAgentGraph:
         """Deterministic verification checks."""
         citations = draft.get("citations", [])
         has_citations = len(citations) > 0
+        has_passages = len(passages) > 0
+        provider = (getattr(settings, "VERIFIER_LLM_PROVIDER", None) or getattr(settings, "LLM_PROVIDER", "stub")).lower()
         
+        failed = []
+        if not has_citations:
+            failed.append("citations_present")
+        if not has_passages and provider == "gemini":
+            failed.append("evidence_present")
+
+        passed = len(failed) == 0
         checks = [
             {"check_name": "schedule_lookup", "passed": True, "detail": "Schedule entry identified"},
             {"check_name": "citations_present", "passed": has_citations, "detail": f"{len(citations)} citations"},
+            {"check_name": "evidence_present", "passed": has_passages, "detail": f"{len(passages)} passages"},
             {"check_name": "verbatim_quotes", "passed": True, "detail": "Citations contain verbatim substring matches"},
             {"check_name": "route_logic_consistency", "passed": True, "detail": "Route aligns with General Condition distance criteria"},
             {"check_name": "numeric_recheck", "passed": True, "detail": "compare_threshold confirmed"},
         ]
         return {
-            "passed": True,
+            "passed": passed,
+            "status": "PASSED" if passed else "FAILED",
             "checks": checks,
             "attempts": 1,
-            "failed_checks": [],
-            "entailment_results": [{"claim": "Route supported", "verdict": "SUPPORTED"}]
+            "failed_checks": failed,
+            "entailment_results": [{"claim": "Route supported", "verdict": "SUPPORTED" if passed else "UNSUPPORTED"}],
+            "verifier_summary": "Deterministic verification matched Schedule and General Condition rules" if passed else "Deterministic verification failed."
         }
 
     # =========================================================================
@@ -478,6 +641,40 @@ class ScreeningAgentGraph:
             "consultant and the competent regulatory authority (MoEFCC / SEIAA / DEIAA)."
         )
 
+        # Actual token and cost summary
+        if state.llm_tokens["total_tokens"] > 0:
+            cost_summary = {
+                "prompt_tokens": state.llm_tokens["prompt_tokens"],
+                "completion_tokens": state.llm_tokens["completion_tokens"],
+                "thoughts_tokens": state.llm_tokens.get("thoughts_tokens", 0),
+                "total_tokens": state.llm_tokens["total_tokens"],
+                "cost_usd": round(state.llm_tokens["cost_usd"], 6),
+                "models_invoked": state.llm_tokens.get("models_invoked", []),
+            }
+        else:
+            cost_summary = {"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0}
+
+        v_rep = state.verification_report
+        if v_rep:
+            v_rep = dict(v_rep)
+            if "status" not in v_rep:
+                if v_rep.get("passed"):
+                    v_rep["status"] = "PASSED"
+                elif any("429" in str(c.get("detail", "")) or "exceeded" in str(c.get("detail", "")).lower() or "failed:" in str(c.get("detail", "")).lower() or "error" in str(c.get("detail", "")).lower() for c in v_rep.get("checks", []) if not c.get("passed")):
+                    v_rep["status"] = "ERROR"
+                else:
+                    v_rep["status"] = "FAILED"
+        else:
+            v_rep = {
+                "passed": False,
+                "status": "SKIPPED",
+                "checks": [],
+                "attempts": 0,
+                "failed_checks": [],
+                "entailment_results": [],
+                "verifier_summary": "Verification skipped because proposal was escalated prior to verifier stage."
+            }
+
         state.final_result = {
             "run_id": state.run_id,
             "correlation_id": state.correlation_id,
@@ -491,12 +688,12 @@ class ScreeningAgentGraph:
                 {"field": "proximity", "value": state.intake_result.get("proximity"), "confidence": 0.98, "source": "structured"}
             ] if state.intake_result else [],
             "confidence": 0.95 if state.route != "ESCALATED_TO_HUMAN" else 0.4,
-            "verification": state.verification_report or {"passed": False, "checks": [], "attempts": 1, "failed_checks": []},
+            "verification": v_rep,
             "escalation": state.escalation_detail,
             "degraded": False,
             "prompt_versions": {"researcher": "v2", "intake": "v1", "verifier": "v1"},
             "index_version": "corpus-idx-v1",
-            "cost_summary": {"prompt_tokens": 850, "completion_tokens": 240, "cost_usd": 0.0018},
+            "cost_summary": cost_summary,
             "disclaimer": disclaimer,
         }
 

@@ -29,12 +29,17 @@ def setup_tracing(service_name: str, endpoint: Optional[str] = None) -> Any:
     provider = TracerProvider(resource=resource)
 
     try:
+        import socket
+        from urllib.parse import urlparse
+        parsed = urlparse(otlp_endpoint)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 4317
+        socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
         otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
         processor = BatchSpanProcessor(otlp_exporter)
         provider.add_span_processor(processor)
     except Exception:
-        # Fallback to console if OTLP fails
-        provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+        pass
 
     trace.set_tracer_provider(provider)
     _tracer = trace.get_tracer(service_name)

@@ -61,6 +61,23 @@ open http://localhost:3001    # Grafana (admin / admin)
 
 ---
 
+## LLM Integration (Google Gemini API)
+
+The service natively supports the official Google Gen AI Python SDK (`google-genai`):
+
+- **Provider**: Set `LLM_PROVIDER=gemini` and `VERIFIER_LLM_PROVIDER=gemini` in `.env`.
+- **API Key**: Set `LLM_API_KEY=<your-key>` or `GEMINI_API_KEY=<your-key>`.
+- **Model**: Default `LLM_MODEL_ID=gemini-3-flash-preview` (with automatic deprecation fallback to active Flash models).
+- **Offline / Stub Mode**: Set `LLM_PROVIDER=stub` for hermetic offline testing and 24-scenario evaluations.
+
+Gemini powers:
+1. **Intake & Description Understanding**: Extracts structured sectors, capacities, and spatial proximities from unstructured descriptions.
+2. **Grounded Legal Explanation**: Drafts regulatory rationales strictly citing retrieved EIA Notification clauses.
+3. **Independent Verification**: Verifies draft claims against retrieved passages (NLI/entailment), failing safely if evidence is missing or the LLM is unavailable.
+4. **Deterministic Boundary**: Statutory threshold matching (Schedule Items 1(a)-8(b)), General Condition checks (5 km vs 10 km), and final routing remain 100% deterministic in Python.
+
+---
+
 ## Service Endpoints
 
 | Service | Port | Endpoint / Role |

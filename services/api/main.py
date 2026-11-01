@@ -9,9 +9,9 @@ from prometheus_client import make_asgi_app
 from libs.common.config import settings
 from libs.common.logging import configure_logging, get_logger
 from libs.common.tracing import setup_tracing
-from libs.common.db.session import get_engine, close_db
+from libs.common.db.session import get_engine, close_db, init_db
 
-from services.api.routers import screenings, quarantine, health, feedback, admin
+from services.api.routers import screenings, quarantine, health, feedback, admin, auth
 from services.api.metrics import http_requests_total, http_request_duration_seconds
 
 # Configure logging and tracer
@@ -25,8 +25,8 @@ async def lifespan(app: FastAPI):
     logger.info("Starting API service", environment=settings.ENVIRONMENT)
     # Warm up database engine
     try:
-        engine = get_engine()
-        logger.info("Database engine initialized")
+        await init_db()
+        logger.info("Database engine and tables initialized")
     except Exception as exc:
         logger.error("Failed to initialize database engine", error=str(exc))
     yield
@@ -80,6 +80,7 @@ app.mount("/metrics", metrics_asgi)
 
 # Include API routers
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(screenings.router)
 app.include_router(quarantine.router)
 app.include_router(feedback.router)

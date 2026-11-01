@@ -45,6 +45,37 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    username = Column(String(64), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(255), nullable=True)
+    role = Column(String(32), default="user", nullable=False)  # "user", "admin", "auditor"
+    client_id = Column(String(64), nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    jti = Column(String(64), unique=True, nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    revoked = Column(Boolean, default=False, nullable=False, index=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    user = relationship("User", back_populates="sessions")
+
+
 class Run(Base):
     __tablename__ = "runs"
 
@@ -52,6 +83,7 @@ class Run(Base):
     run_id = Column(String(36), nullable=False, default=lambda: str(uuid.uuid4()), index=True)
     correlation_id = Column(String(64), nullable=False, index=True)
     client_id = Column(String(64), nullable=False, index=True)
+    user_id = Column(String(36), nullable=True, index=True)
     project_name = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     status = Column(
