@@ -17,8 +17,8 @@ class ProximityEntity(BaseModel):
         default=None,
         description="Verbatim textual mention of distance or proximity (e.g. '7 km', 'near national park')"
     )
-    is_ambiguous: bool = Field(
-        default=False,
+    is_ambiguous: Optional[bool] = Field(
+        default=None,
         description="True if proximity is qualitative/vague (e.g. 'near', 'close to', 'adjacent') without an exact number"
     )
 
@@ -48,15 +48,12 @@ class IntakeExtractionSchema(BaseModel):
         description="Extracted total project area in hectares, if mentioned"
     )
     proximities: List[ProximityEntity] = Field(
-        default_factory=list,
         description="Extracted proximity relationships to sensitive or protected features"
     )
     is_out_of_corpus: bool = Field(
-        default=False,
         description="True if project activity clearly falls outside the Schedule of the EIA Notification 2006 (e.g. purely commercial software IT parks, space satellites, agriculture, etc.)"
     )
     confidence: float = Field(
-        default=0.9,
         ge=0.0,
         le=1.0,
         description="Extraction confidence score"
@@ -75,7 +72,6 @@ class GroundedRegulatoryExplanation(BaseModel):
         description="Analysis of General Condition (GC) applicability based on distance to protected features and statutory distance limits (5 km vs 10 km)"
     )
     grounded_in_citations: bool = Field(
-        default=True,
         description="True if all assertions are backed strictly by the provided corpus citations"
     )
 
@@ -103,14 +99,12 @@ class VerifierVerificationResult(BaseModel):
         description="True ONLY if the proposed route, statutory threshold comparisons, and General Condition findings are fully supported by the retrieved passages"
     )
     entailment_results: List[EntailmentClaimCheck] = Field(
-        default_factory=list,
         description="Individual claim verification checks"
     )
     evidence_sufficiency: str = Field(
         description="Rating of evidence sufficiency: 'HIGH', 'MEDIUM', 'LOW', or 'INSUFFICIENT'"
     )
     hallucination_detected: bool = Field(
-        default=False,
         description="True if the draft determination cites facts, rules, or thresholds absent from the retrieved passages"
     )
     summary_verdict: str = Field(

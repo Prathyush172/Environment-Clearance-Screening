@@ -72,13 +72,9 @@ class GeminiClient:
             from google import genai
             from google.genai import types
 
-            http_client = httpx.Client(
-                timeout=httpx.Timeout(self.timeout_s, connect=15.0),
-                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
-            )
             self._sdk_client = genai.Client(
                 api_key=self.api_key,
-                http_options=types.HttpOptions(httpx_client=http_client),
+                http_options=types.HttpOptions(timeout=int(self.timeout_s * 1000)),
             )
         return self._sdk_client
 
@@ -107,6 +103,24 @@ class GeminiClient:
             if fb != target_model and fb not in models_to_try:
                 models_to_try.append(fb)
 
+        cleaned_schema = response_schema
+        if isinstance(response_schema, type) and issubclass(response_schema, BaseModel):
+            try:
+                from google.genai import _transformers
+                schema_obj = _transformers.t_schema(None, response_schema)
+                def _strip_defaults(s):
+                    if hasattr(s, "default"):
+                        s.default = None
+                    if hasattr(s, "properties") and s.properties:
+                        for p in s.properties.values():
+                            _strip_defaults(p)
+                    if hasattr(s, "items") and s.items:
+                        _strip_defaults(s.items)
+                _strip_defaults(schema_obj)
+                cleaned_schema = schema_obj
+            except Exception:
+                cleaned_schema = response_schema
+
         last_error = None
         for current_model in models_to_try:
             attempts = 0
@@ -115,7 +129,7 @@ class GeminiClient:
                 try:
                     config = types.GenerateContentConfig(
                         response_mime_type="application/json",
-                        response_schema=response_schema,
+                        response_schema=cleaned_schema,
                         temperature=temperature,
                         max_output_tokens=max_output_tokens,
                         system_instruction=system_instruction,
@@ -193,9 +207,12 @@ class GeminiClient:
                         raise
 
                 except errors.ServerError as se:
-                    # 503 high demand or 500 server error: retry with backoff
+                    # 503 high demand or 500 server error: retry or switch to fallback model
                     last_error = se
-                    wait = (2 ** attempts) * 1.5 + random.uniform(0.2, 0.8)
+                    if attempts >= 2:
+                        logger.warning("gemini_server_unavailable_trying_fallback_model", model=current_model)
+                        break
+                    wait = 2.0 + random.uniform(0.2, 0.5)
                     logger.warning("gemini_server_unavailable_retrying", attempt=attempts, wait_s=wait)
                     time.sleep(wait)
 

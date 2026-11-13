@@ -91,7 +91,11 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def close_db() -> None:
     """Close engine connection pool."""
-    global _engine
+    global _engine, _session_factory
     if _engine is not None:
-        await _engine.dispose()
+        try:
+            await _engine.dispose()
+        except Exception:
+            pass
         _engine = None
+        _session_factory = None

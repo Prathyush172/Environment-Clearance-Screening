@@ -1,0 +1,35 @@
+{
+  "id": null,
+  "title": "EIA Pre-Screening Overview",
+  "tags": ["eia", "screening"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Screenings per minute",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "rate(screening_runs_total[1m])",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Verification results",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "rate(verification_checks_total[1m])",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,14 +1,14 @@
 # Build stage
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
-RUN npm install -g pnpm && pnpm install --no-frozen-lockfile
+COPY package*.json ./
+RUN npm ci || npm install
 COPY . .
-RUN pnpm build
+RUN npm run build
 
 # Serve stage  
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
-HEALTHCHECK --interval=10s --timeout=5s --retries=3 CMD wget -qO- http://localhost:80/ || exit 1
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 CMD wget -qO- http://127.0.0.1:80/ || exit 1

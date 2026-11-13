@@ -149,8 +149,12 @@ def embed_chunks(chunks: List[Dict[str, Any]]) -> List[List[float]]:
 def upsert_to_chroma(chunks: List[Dict[str, Any]], embeddings: Optional[List[List[float]]] = None) -> int:
     """Upsert chunks with embeddings to ChromaDB."""
     try:
-        from services.worker.tools.retrieval import get_chroma_client
-        client = get_chroma_client()
+        try:
+            from services.worker.tools.retrieval import get_chroma_client
+            client = get_chroma_client()
+        except Exception:
+            import chromadb
+            client = chromadb.HttpClient(host=getattr(settings, "CHROMA_HOST", "chroma"), port=int(getattr(settings, "CHROMA_PORT", 8000)))
         collection = client.get_or_create_collection(
             name=settings.CHROMA_COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"}

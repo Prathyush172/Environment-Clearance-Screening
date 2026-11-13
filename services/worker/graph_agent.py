@@ -520,13 +520,10 @@ class ScreeningAgentGraph:
         candidate_urls = []
         if getattr(settings, "VERIFIER_URL", None):
             candidate_urls.append(settings.VERIFIER_URL)
-        if settings.VERIFIER_HOST in ["localhost", "127.0.0.1"]:
+        if settings.VERIFIER_HOST:
             candidate_urls.append(f"http://{settings.VERIFIER_HOST}:{settings.VERIFIER_PORT}/v1/verify")
-        else:
-            # Local host candidate first for quick response when running outside Docker
-            candidate_urls.append(f"http://127.0.0.1:{settings.VERIFIER_PORT}/v1/verify")
-            candidate_urls.append(f"http://localhost:{settings.VERIFIER_PORT}/v1/verify")
-            candidate_urls.append(f"http://{settings.VERIFIER_HOST}:{settings.VERIFIER_PORT}/v1/verify")
+        candidate_urls.append(f"http://127.0.0.1:{settings.VERIFIER_PORT}/v1/verify")
+        candidate_urls.append(f"http://localhost:{settings.VERIFIER_PORT}/v1/verify")
 
         payload = {
             "run_id": state.run_id,

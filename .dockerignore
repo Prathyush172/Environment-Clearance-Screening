@@ -1,0 +1,45 @@
+# Secrets - never bake into images
+.env
+*.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Git
+.git/
+.gitignore
+
+# Node
+node_modules/
+services/web/node_modules/
+services/web/dist/
+
+# Data and large files
+data/eia_service.db
+data/chroma/
+chroma_data/
+*.log
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+docs/results/
+scratch/

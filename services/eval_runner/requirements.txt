@@ -1,5 +1,9 @@
 httpx==0.28.0
 pydantic==2.10.2
+pydantic-settings==2.7.0
 click==8.1.7
 structlog==24.4.0
 chromadb==0.5.20
+google-genai>=1.0.0
+sqlalchemy[asyncio]==2.0.35
+asyncpg==0.30.0

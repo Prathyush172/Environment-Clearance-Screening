@@ -7,15 +7,15 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 exporters:
-  jaeger:
-    endpoint: jaeger:14250
+  otlp/jaeger:
+    endpoint: jaeger:4317
     tls:
       insecure: true
-  logging:
-    loglevel: warn
+  debug:
+    verbosity: basic
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
-      exporters: [jaeger, logging]
+      exporters: [otlp/jaeger, debug]
